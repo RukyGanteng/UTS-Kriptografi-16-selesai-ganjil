@@ -1,0 +1,5 @@
+Nama: SABRI
+Nilai_kripto: 7
+Status: mahasiswa
+agama: TIDAK DI KETAHUI
+nomor: -

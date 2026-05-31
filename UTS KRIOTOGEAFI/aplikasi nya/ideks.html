@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengecek Integritas File (MD5 & SHA-256)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Kita menggunakan library CryptoJS untuk menghitung MD5 karena browser bawaan (WebCrypto API) tidak lagi mendukung MD5 dengan alasan keamanan -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="bg-gray-100 p-8 font-sans text-gray-800">
+
+    <div class="max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-2 text-center text-blue-700">Aplikasi Pengecekan Integritas File</h1>
+        <p class="text-center text-gray-600 mb-8">membandingkan Hash MD5 dan SHA-256 dari File Asli dan File Modifikasi</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Kolom File Asli -->
+            <div class="border-2 border-dashed border-gray-300 p-4 rounded-lg bg-gray-50">
+                <h2 class="text-lg font-bold mb-4">1. File Asli</h2>
+                <input type="file" id="fileOriginal" class="block w-full text-sm text-gray-500 mb-4 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                
+                <div class="mb-3">
+                    <label class="block text-sm font-bold text-gray-700">MD5 Hash:</label>
+                    <textarea id="hashMd5Original" class="w-full mt-1 p-2 border rounded text-sm font-mono bg-gray-200" rows="2" readonly></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700">SHA-256 Hash:</label>
+                    <textarea id="hashShaOriginal" class="w-full mt-1 p-2 border rounded text-sm font-mono bg-gray-200" rows="3" readonly></textarea>
+                </div>
+            </div>
+
+            <!-- Kolom File Modifikasi -->
+            <div class="border-2 border-dashed border-gray-300 p-4 rounded-lg bg-gray-50">
+                <h2 class="text-lg font-bold mb-4">2. File Modifikasi</h2>
+                <input type="file" id="fileModified" class="block w-full text-sm text-gray-500 mb-4 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100">
+                
+                <div class="mb-3">
+                    <label class="block text-sm font-bold text-gray-700">MD5 Hash:</label>
+                    <textarea id="hashMd5Modified" class="w-full mt-1 p-2 border rounded text-sm font-mono bg-gray-200" rows="2" readonly></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700">SHA-256 Hash:</label>
+                    <textarea id="hashShaModified" class="w-full mt-1 p-2 border rounded text-sm font-mono bg-gray-200" rows="3" readonly></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <button onclick="compareFiles()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow transition duration-200">
+                Hitung & Bandingkan Hash
+            </button>
+        </div>
+
+        <!-- Hasil Perbandingan -->
+        <div id="resultBox" class="mt-8 p-4 rounded-lg text-center hidden">
+            <h3 id="resultTitle" class="text-xl font-bold mb-2"></h3>
+            <p id="resultText" class="text-lg"></p>
+        </div>
+    </div>
+
+    <script>
+        // Fungsi untuk membaca file sebagai ArrayBuffer
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Fungsi untuk menghitung SHA-256 menggunakan Web Crypto API bawaan
+        async function calculateSHA256(arrayBuffer) {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
+        // Fungsi untuk menghitung MD5 menggunakan library CryptoJS
+        function calculateMD5(arrayBuffer) {
+            const wordArray = CryptoJS.lib.WordArray.create(arrayBuffer);
+            const hash = CryptoJS.MD5(wordArray).toString();
+            return hash;
+        }
+
+        async function processFile(inputId, md5OutputId, shaOutputId) {
+            const fileInput = document.getElementById(inputId);
+            if (fileInput.files.length === 0) return null;
+
+            const file = fileInput.files[0];
+            const arrayBuffer = await readFileAsArrayBuffer(file);
+
+            // Hitung dan tampilkan MD5
+            const md5Hash = calculateMD5(arrayBuffer);
+            document.getElementById(md5OutputId).value = md5Hash;
+
+            // Hitung dan tampilkan SHA-256
+            const sha256Hash = await calculateSHA256(arrayBuffer);
+            document.getElementById(shaOutputId).value = sha256Hash;
+
+            return { md5: md5Hash, sha256: sha256Hash };
+        }
+
+        async function compareFiles() {
+            const btn = document.querySelector('button');
+            btn.innerText = "Memproses...";
+            btn.disabled = true;
+
+            try {
+                const originalHashes = await processFile('fileOriginal', 'hashMd5Original', 'hashShaOriginal');
+                const modifiedHashes = await processFile('fileModified', 'hashMd5Modified', 'hashShaModified');
+
+                const resultBox = document.getElementById('resultBox');
+                const resultTitle = document.getElementById('resultTitle');
+                const resultText = document.getElementById('resultText');
+
+                resultBox.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-yellow-100', 'text-yellow-800');
+
+                if (!originalHashes || !modifiedHashes) {
+                    resultBox.classList.add('bg-yellow-100', 'text-yellow-800');
+                    resultTitle.innerText = "Peringatan";
+                    resultText.innerText = "Harap masukkan kedua file (Asli dan Modifikasi) untuk dibandingkan.";
+                } else if (originalHashes.sha256 === modifiedHashes.sha256) {
+                    resultBox.classList.add('bg-green-100', 'text-green-800');
+                    resultTitle.innerText = "INTEGRITAS VALID: Hash Cocok";
+                    resultText.innerText = "File asli dan file modifikasi sama persis. Tidak ada perubahan yang terdeteksi.";
+                } else {
+                    resultBox.classList.add('bg-red-100', 'text-red-800');
+                    resultTitle.innerText = "INTEGRITAS RUSAK: Hash Berbeda!";
+                    resultText.innerText = "Telah terjadi perubahan pada file. File modifikasi tidak identik dengan file asli (Avalanche Effect terjadi).";
+                }
+                resultBox.classList.remove('hidden');
+
+            } catch (error) {
+                alert("Terjadi kesalahan saat memproses file.");
+                console.error(error);
+            } finally {
+                btn.innerText = "Hitung & Bandingkan Hash";
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+Nama: RUKY
+Nilai_kripto: 90
+Status: mahasiswa
+agama: islam
+nomor: 085398150009
